@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Letrero LED con Desplazamiento</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos personalizados para animaciones y efectos que Tailwind no cubre */
+        body {
+            overflow-x: hidden;
+        }
+
+        .led-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            overflow: hidden;
+        }
+
+        .led-text {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            white-space: nowrap;
+            width: max-content; /* Asegura que el texto no se corte */
+        }
+
+        .preview-text {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            white-space: nowrap;
+            width: max-content; /* Asegura que el texto no se corte */
+        }
+
+        /* Animaciones */
+        @keyframes moveRightToLeft {
+            0% { left: 100%; }
+            100% { left: -300%; } /* Aumentado para textos largos */
+        }
+
+        @keyframes moveLeftToRight {
+            0% { left: -300%; } /* Aumentado para textos largos */
+            100% { left: 100%; }
+        }
+
+        @keyframes bounceLeftRight {
+            0% { left: 0%; }
+            50% { left: calc(100% - 100% * var(--text-width-ratio)); }
+            100% { left: 0%; }
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Estilos predefinidos para el texto */
+        .style-normal {
+            font-family: Arial, sans-serif;
+        }
+
+        .style-neon {
+            font-family: 'Arial', sans-serif;
+        }
+
+        .style-pixel {
+            font-family: 'Courier New', monospace;
+            letter-spacing: 5px;
+        }
+
+        .style-retro {
+            font-family: 'Impact', sans-serif;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <div class="container mx-auto max-w-4xl px-4 py-8">
+        <h1 class="text-3xl font-bold text-center mb-6">Letrero LED Personalizable</h1>
+        
+        <div class="mb-6">
+            <textarea id="text-input" rows="3" class="w-full p-3 text-lg bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Ingresa el texto para el letrero"></textarea>
+        </div>
+        
+        <div class="w-full h-24 bg-black rounded-lg mb-6 relative overflow-hidden" id="preview-container">
+            <div class="preview-text" id="preview-text">Vista previa</div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="p-4 bg-gray-800 rounded-lg">
+                <label class="block font-bold mb-2" for="text-color">Color del texto:</label>
+                <input type="color" id="text-color" value="#ff0000" class="h-10 w-full">
+            </div>
+            
+            <div class="p-4 bg-gray-800 rounded-lg">
+                <label class="block font-bold mb-2" for="bg-color">Color de fondo:</label>
+                <input type="color" id="bg-color" value="#000000" class="h-10 w-full">
+            </div>
+            
+            <div class="p-4 bg-gray-800 rounded-lg">
+                <label class="block font-bold mb-2" for="speed">
+                    Velocidad (segundos por vuelta): <span id="speed-value">15s</span>
+                </label>
+                <input type="range" id="speed" min="1" max="30" value="15" class="w-full">
+            </div>
+            
+            <div class="p-4 bg-gray-800 rounded-lg">
+                <label class="block font-bold mb-2" for="duration">Duración (segundos, 0 = infinito):</label>
+                <input type="number" id="duration" min="0" max="300" value="0" class="w-full p-2 bg-gray-700 rounded">
+            </div>
+            
+            <div class="p-4 bg-gray-800 rounded-lg">
+                <label class="block font-bold mb-2" for="direction">Dirección:</label>
+                <select id="direction" class="w-full p-2 bg-gray-700 rounded">
+                    <option value="rtl">Derecha a izquierda</option>
+                    <option value="ltr">Izquierda a derecha</option>
+                    <option value="bounce">Rebote</option>
+                </select>
+            </div>
+            
+            <div class="p-4 bg-gray-800 rounded-lg">
+                <label class="block font-bold mb-2" for="effect">Efecto adicional:</label>
+                <select id="effect" class="w-full p-2 bg-gray-700 rounded">
+                    <option value="none">Ninguno</option>
+                    <option value="blink">Parpadeo</option>
+                    <option value="glow">Resplandor</option>
+                    <option value="both">Parpadeo y resplandor</option>
+                </select>
+            </div>
+            
+            <div class="p-4 bg-gray-800 rounded-lg">
+                <label class="block font-bold mb-2" for="text-style">Estilo de texto:</label>
+                <select id="text-style" class="w-full p-2 bg-gray-700 rounded">
+                    <option value="normal">Normal</option>
+                    <option value="neon">Neón</option>
+                    <option value="pixel">Pixel</option>
+                    <option value="retro">Retro</option>
+                </select>
+            </div>
+            
+            <div class="p-4 bg-gray-800 rounded-lg">
+                <label class="block font-bold mb-2" for="shadow-intensity">
+                    Intensidad del brillo: <span id="shadow-intensity-value">3</span>
+                </label>
+                <input type="range" id="shadow-intensity" min="0" max="5" value="3" class="w-full">
+            </div>
+        </div>
+        
+        <div class="text-center">
+            <button id="show-button" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition duration-300">Mostrar en Pantalla Completa</button>
+        </div>
+    </div>
+
+    <div class="led-screen" id="led-screen">
+        <div class="led-text" id="led-text"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elementos DOM
+            const textInput = document.getElementById('text-input');
+            const showButton = document.getElementById('show-button');
+            const ledScreen = document.getElementById('led-screen');
+            const ledText = document.getElementById('led-text');
+            const previewContainer = document.getElementById('preview-container');
+            const previewText = document.getElementById('preview-text');
+            
+            // Configuraciones
+            const textColor = document.getElementById('text-color');
+            const bgColor = document.getElementById('bg-color');
+            const speed = document.getElementById('speed');
+            const speedValue = document.getElementById('speed-value');
+            const duration = document.getElementById('duration');
+            const direction = document.getElementById('direction');
+            const effect = document.getElementById('effect');
+            const textStyle = document.getElementById('text-style');
+            const shadowIntensity = document.getElementById('shadow-intensity');
+            const shadowIntensityValue = document.getElementById('shadow-intensity-value');
+            
+            // Actualizar los valores mostrados
+            speed.addEventListener('input', function() {
+                speedValue.textContent = `${speed.value}s`;
+                updatePreview();
+            });
+            
+            shadowIntensity.addEventListener('input', function() {
+                shadowIntensityValue.textContent = shadowIntensity.value;
+                updatePreview();
+            });
+            
+            // Actualizar la vista previa cuando se cambia cualquier configuración
+            const configInputs = document.querySelectorAll('input, select');
+            configInputs.forEach(input => {
+                input.addEventListener('input', updatePreview);
+            });
+            
+            textInput.addEventListener('input', updatePreview);
+            
+            // Función para actualizar la vista previa
+            function updatePreview() {
+                const text = textInput.value.trim() || 'Vista previa';
+                previewText.textContent = text;
+                
+                // Aplicar estilos
+                applyStyles(previewText, previewContainer);
+                
+                // Reiniciar la animación
+                previewText.style.animation = 'none';
+                setTimeout(() => {
+                    const animationName = getAnimationName();
+                    const animationDuration = `${speed.value}s`;
+                    previewText.style.animation = `${animationName} ${animationDuration} linear infinite`;
+                    if (effect.value === 'blink' || effect.value === 'both') {
+                        previewText.style.animation += `, blink 1s ease-in-out infinite`;
+                    }
+                }, 10);
+            }
+            
+            // Obtener nombre de la animación según la dirección
+            function getAnimationName() {
+                switch(direction.value) {
+                    case 'rtl': return 'moveRightToLeft';
+                    case 'ltr': return 'moveLeftToRight';
+                    case 'bounce': return 'bounceLeftRight';
+                    default: return 'moveRightToLeft';
+                }
+            }
+            
+            // Función para aplicar los estilos configurados al elemento de texto
+            function applyStyles(textElement, containerElement) {
+                // Color de texto y fondo
+                textElement.style.color = textColor.value;
+                containerElement.style.backgroundColor = bgColor.value;
+                
+                // Estilo de texto
+                textElement.className = textElement === previewText ? 'preview-text' : 'led-text';
+                textElement.classList.add(`style-${textStyle.value}`);
+                
+                // Sombras de texto (efecto de resplandor)
+                let textShadow = '';
+                if (effect.value === 'glow' || effect.value === 'both') {
+                    const color = textColor.value;
+                    const intensity = parseInt(shadowIntensity.value);
+                    if (intensity > 0) {
+                        for (let i = 1; i <= intensity; i++) {
+                            const size = i * 5;
+                            textShadow += `0 0 ${size}px ${color}`;
+                            if (i < intensity) textShadow += ', ';
+                        }
+                    }
+                }
+                textElement.style.textShadow = textShadow;
+                
+                // Calcular la proporción del ancho del texto para la animación de rebote
+                setTimeout(() => {
+                    const textWidth = textElement.offsetWidth;
+                    const containerWidth = containerElement.offsetWidth;
+                    if (containerWidth > 0) {
+                        const ratio = textWidth / containerWidth;
+                        containerElement.style.setProperty('--text-width-ratio', ratio);
+                    }
+                }, 0);
+            }
+            
+            // Función para abrir pantalla completa
+            function openFullscreen(element) {
+                if (element.requestFullscreen) {
+                    element.requestFullscreen();
+                } else if (element.webkitRequestFullscreen) {
+                    element.webkitRequestFullscreen();
+                } else if (element.msRequestFullscreen) {
+                    element.msRequestFullscreen();
+                }
+            }
+            
+            // Función para ajustar el tamaño del texto
+            function adjustTextSize() {
+                const screenHeight = ledScreen.clientHeight;
+                // Ajustar el tamaño del texto al 60% de la altura de la pantalla
+                // Reducido del 80% para asegurarse de que todo el texto se vea completo
+                const fontSize = screenHeight * 0.6;
+                ledText.style.fontSize = `${fontSize}px`;
+                
+                // Asegurarnos de que el ancho del elemento de texto sea apropiado
+                ledText.style.width = 'max-content';
+                
+                // Recalcular la proporción del ancho del texto para la animación de rebote
+                setTimeout(() => {
+                    const textWidth = ledText.offsetWidth;
+                    const containerWidth = ledScreen.offsetWidth;
+                    if (containerWidth > 0) {
+                        const ratio = textWidth / containerWidth;
+                        ledScreen.style.setProperty('--text-width-ratio', ratio);
+                    }
+                }, 100);
+            }
+            
+            // Inicializar la vista previa
+            updatePreview();
+            
+            // Evento click del botón mostrar
+            showButton.addEventListener('click', function() {
+                const text = textInput.value.trim();
+                if (!text) {
+                    alert('Por favor ingresa un texto para mostrar');
+                    return;
+                }
+                
+                // Establecer el texto
+                ledText.textContent = text;
+                
+                // Aplicar estilos configurados
+                ledScreen.style.display = 'block';
+                applyStyles(ledText, ledScreen);
+                
+                // Configurar la animación
+                const animationName = getAnimationName();
+                const animationDuration = `${speed.value}s`;
+                ledText.style.animation = `${animationName} ${animationDuration} linear`;
+                
+                // Añadir efecto de parpadeo si está seleccionado
+                if (effect.value === 'blink' || effect.value === 'both') {
+                    ledText.style.animation += `, blink 1s ease-in-out infinite`;
+                }
+                
+                // Configurar la animación para que sea infinita o con duración limitada
+                const durationValue = parseInt(duration.value);
+                if (durationValue > 0) {
+                    ledText.style.animationIterationCount = Math.ceil(durationValue / speed.value);
+                    
+                    // Cerrar después de la duración especificada
+                    setTimeout(function() {
+                        ledScreen.style.display = 'none';
+                        if (document.exitFullscreen) {
+                            document.exitFullscreen();
+                        } else if (document.webkitExitFullscreen) {
+                            document.webkitExitFullscreen();
+                        } else if (document.msExitFullscreen) {
+                            document.msExitFullscreen();
+                        }
+                    }, durationValue * 1000);
+                } else {
+                    ledText.style.animationIterationCount = 'infinite';
+                }
+                
+                // Abrir en pantalla completa
+                openFullscreen(ledScreen);
+                
+                // Ajustar el tamaño del texto
+                setTimeout(adjustTextSize, 100);
+            });
+            
+            // Cerrar la pantalla LED al hacer clic en ella
+            ledScreen.addEventListener('click', function() {
+                ledScreen.style.display = 'none';
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            });
+            
+            // Ajustar el tamaño del texto cuando cambia el tamaño de la ventana
+            window.addEventListener('resize', function() {
+                if (ledScreen.style.display === 'block') {
+                    adjustTextSize();
+                }
+            });
+            
+            // Evento para cuando se complete el cambio a pantalla completa
+            document.addEventListener('fullscreenchange', function() {
+                if (document.fullscreenElement && ledScreen.style.display === 'block') {
+                    setTimeout(adjustTextSize, 100);
+                }
+            });
+            document.addEventListener('webkitfullscreenchange', function() {
+                if (document.webkitFullscreenElement && ledScreen.style.display === 'block') {
+                    setTimeout(adjustTextSize, 100);
+                }
+            });
+            document.addEventListener('mozfullscreenchange', function() {
+                if (document.mozFullScreenElement && ledScreen.style.display === 'block') {
+                    setTimeout(adjustTextSize, 100);
+                }
+            });
+            document.addEventListener('MSFullscreenChange', function() {
+                if (document.msFullscreenElement && ledScreen.style.display === 'block') {
+                    setTimeout(adjustTextSize, 100);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
