@@ -11,5 +11,5 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.letrero-led.rule=Host(\`letrero.johandev.lat\`)"
+      - "traefik.http.routers.letrero-led.rule=Host(letrero.johandev.lat)"
       - "traefik.http.services.letrero-led.loadbalancer.server.port=80"
